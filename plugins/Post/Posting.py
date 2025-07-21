@@ -275,9 +275,8 @@ async def send_post(client, message: Message):
     await processing_msg.edit_text(result_msg, reply_markup=reply_markup)
 
     try:
-	me = await client.get_me()    
         log_msg = (
-            f"📢 <blockquote><b>#Post | Group {group} | @{me.username}</b></blockquote>\n\n"
+            f"📢 <blockquote><b>#Post | Group {group} | @Interferons_bot</b></blockquote>\n\n"
             f"👤 <b>Posted By:</b> {message.from_user.mention}\n"
             f"📌 <b>Post ID:</b> <code>{post_id}</code>\n"
             f"📡 <b>Sent to:</b> {success_count}/{total_channels} channels\n"
@@ -439,9 +438,8 @@ async def forward_post(client, message: Message):
     await processing_msg.edit_text(result_msg, reply_markup=reply_markup)
 
     try:
-	me = await client.get_me()    
         log_msg = (
-            f"📢 <blockquote><b>#FPost | Group {group} | @{me.username}</b></blockquote>\n\n"
+            f"📢 <blockquote><b>#FPost | Group {group} | @Interferons_bot</b></blockquote>\n\n"
             f"👤 <b>Forwarded By:</b> {message.from_user.mention}\n"
             f"📌 <b>Post ID:</b> <code>{post_id}</code>\n"
             f"📡 <b>Sent to:</b> {success_count}/{total_channels} channels\n"
