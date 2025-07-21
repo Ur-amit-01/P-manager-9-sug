@@ -17,7 +17,7 @@ class Database:
         self.col = self.db.user
         self.channels = self.db.channels
         self.formatting = self.db.formatting
-        self.admins = self.db.admins  # Dedicated admin collection
+        self.admins = self.db.admins
         self.posts = self.db.posts
         self.settings = self.db.settings
         self.logs = self.db.logs
@@ -31,7 +31,7 @@ class Database:
             prefix=None,
             suffix=None,
             metadata=False,
-            metadata_code="By :- @Madflix_Bots",
+            metadata_code="By :- @xDzoddd",
             join_date=datetime.now(),
             last_active=datetime.now()
         )
@@ -98,38 +98,7 @@ class Database:
             {"$set": {"last_active": datetime.now()}}
         )
 
-    # ============ Channel System ============ #
-    async def add_channel(self, channel_id, channel_name=None):
-        channel_id = int(channel_id)
-        if not await self.is_channel_exist(channel_id):
-            await self.channels.insert_one({
-                "_id": channel_id, 
-                "name": channel_name,
-                "added_date": datetime.now(),
-                "post_count": 0,
-                "last_post": None
-            })
-            return True
-        return False
-
-    async def delete_channel(self, channel_id):
-        await self.channels.delete_one({"_id": int(channel_id)})
-
-    async def is_channel_exist(self, channel_id):
-        return await self.channels.find_one({"_id": int(channel_id)}) is not None
-
-    async def get_all_channels(self):
-        return [channel async for channel in self.channels.find({})]
-
-    async def increment_channel_post(self, channel_id):
-        await self.channels.update_one(
-            {"_id": int(channel_id)},
-            {
-                "$inc": {"post_count": 1},
-                "$set": {"last_post": datetime.now()}
-            }
-        )
-
+    # ============ Channel System ============ 
     # ============ Post System ============ #
     async def save_post(self, post_data):
         post_data["timestamp"] = datetime.now()
@@ -194,8 +163,65 @@ class Database:
             await self.log_error(f"Error retrieving posts: {e}")
             return []
 
-    # ============ admin panel Methods ===========
+    # ============ Channel System with Group Support ============ #
+    async def add_channel(self, channel_id, channel_name=None, group="0"):
+        channel_id = int(channel_id)
+        # Check if this channel already exists in this specific group
+        if not await self.is_channel_in_group(channel_id, group):
+            await self.channels.insert_one({
+                "_id": f"{channel_id}_{group}",  # Composite key to allow same channel in multiple groups
+                "channel_id": channel_id,  # Actual channel ID
+                "name": channel_name,
+                "group": group,
+                "added_date": datetime.now(),
+                "post_count": 0,
+                "last_post": None
+            })
+            return True
+        return False
 
+    async def delete_channel(self, channel_id, group="0"):
+        # Delete specific channel from specific group
+        await self.channels.delete_one({
+            "channel_id": int(channel_id),
+            "group": group
+        })
+
+    async def is_channel_exist(self, channel_id):
+        # Check if channel exists in any group
+        return await self.channels.find_one({"channel_id": int(channel_id)}) is not None
+
+    async def is_channel_in_group(self, channel_id, group="0"):
+        # Check if channel exists in specific group
+        return await self.channels.find_one({
+            "channel_id": int(channel_id),
+            "group": group
+        }) is not None
+
+    async def get_all_channels(self):
+        # Get all channels across all groups
+        return [channel async for channel in self.channels.find({})]
+
+    async def get_channels_by_group(self, group="0"):
+        # Get channels only from specific group
+        return [channel async for channel in self.channels.find({"group": group})]
+
+    async def get_channel_groups(self, channel_id):
+        # Get all groups a channel belongs to
+        return [doc["group"] async for doc in self.channels.find(
+            {"channel_id": int(channel_id)},
+            {"group": 1}
+        )]
+
+    async def increment_channel_post(self, channel_id):
+        # Increment post count for all instances of this channel (across all groups)
+        await self.channels.update_many(
+            {"channel_id": int(channel_id)},
+            {
+                "$inc": {"post_count": 1},
+                "$set": {"last_post": datetime.now()}
+            }
+        )
             
  #Initialize the database
 db = Database(DB_URL, DB_NAME)
