@@ -48,6 +48,98 @@ async def restore_pending_deletions(client):
     except Exception as e:
         print(f"Error restoring pending deletions: {e}")
 
+async def schedule_deletion(client, channel_id, message_id, delay_seconds, user_id, post_id, channel_name, confirmation_msg_id):
+    """Schedule a message for deletion after a delay"""
+    await asyncio.sleep(delay_seconds)
+    
+    try:
+        await client.delete_messages(
+            chat_id=channel_id,
+            message_ids=message_id
+        )
+        
+        await db.remove_channel_post(post_id, channel_id)
+        
+        return {
+            "status": "success",
+            "channel_name": channel_name,
+            "post_id": post_id,
+            "user_id": user_id,
+            "confirmation_msg_id": confirmation_msg_id
+        }
+        
+    except Exception as e:
+        return {
+            "status": "failed",
+            "channel_name": channel_name,
+            "post_id": post_id,
+            "error": str(e),
+            "user_id": user_id,
+            "confirmation_msg_id": confirmation_msg_id
+        }
+
+async def handle_deletion_results(client, deletion_tasks, post_id, delay_seconds):
+    """Handle the results of all deletion tasks"""
+    try:
+        results = await asyncio.gather(*deletion_tasks, return_exceptions=True)
+        
+        success_count = 0
+        failed_count = 0
+        user_id = None
+        confirmation_msg_id = None
+        failed_deletions = []
+        
+        for result in results:
+            if isinstance(result, Exception):
+                failed_count += 1
+                continue
+                
+            if user_id is None and result.get("user_id"):
+                user_id = result["user_id"]
+                confirmation_msg_id = result.get("confirmation_msg_id")
+            
+            if result.get("status") == "success":
+                success_count += 1
+            else:
+                failed_count += 1
+                failed_deletions.append(result)
+        
+        if user_id:
+            if success_count > 0 and confirmation_msg_id:
+                try:
+                    await client.delete_messages(
+                        chat_id=user_id,
+                        message_ids=confirmation_msg_id
+                    )
+                except:
+                    pass
+            
+            message_text = (
+                f"<blockquote>🗑 <b>Post Auto-Deleted</b></blockquote>\n\n"
+                f"• <b>Post ID:</b> <code>{post_id}</code>\n"
+                f"• <b>Deleted from:</b> {success_count} channel(s)\n"
+            )
+            
+            if failed_deletions:
+                message_text += f"• <b>Failed to delete from:</b> {failed_count} channel(s)\n"
+                if len(failed_deletions) <= 5:
+                    message_text += "\n<b>Failed Channels:</b>\n"
+                    for idx, fail in enumerate(failed_deletions, 1):
+                        message_text += f"{idx}. {fail['channel_name']} - {fail.get('error', 'Unknown error')}\n"
+            
+            try:
+                await client.send_message(user_id, message_text)
+            except:
+                pass
+
+        if success_count > 0:
+            remaining_channels = await db.get_post_channels(post_id)
+            if not remaining_channels:
+                await db.delete_post(post_id)
+                
+    except Exception as e:
+        print(f"Error in handle_deletion_results: {e}")
+
 
 @Client.on_message(filters.command(["post", "post0", "post1", "post2", "post3"]) & filters.private & admin_filter)
 async def send_post(client, message: Message):
@@ -376,4 +468,4 @@ async def forward_post(client, message: Message):
                 post_id=post_id,
                 delay_seconds=delete_after
             )
-	    )
+	)
