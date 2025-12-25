@@ -21,10 +21,14 @@ ADMIN_PREFIXES = {
     "restore_",
     "broadcast_",
     "stats_",
-    "back_"
+    "back_",
+    "remove_failed_",  # Add this
+    "remove_restricted_",  # Add this too if you use it
+    "delete_"  # Already handled separately, but good to be explicit
 }
 
-@Client.on_callback_query(filters.regex(r'^(?!admin_|promote_|demote_|list_|backup_|restore_|broadcast_|stats_|back_).*'))
+# Add remove_failed_ and remove_restricted_ to the negative lookahead
+@Client.on_callback_query(filters.regex(r'^(?!admin_|promote_|demote_|list_|backup_|restore_|broadcast_|stats_|back_|remove_failed_|remove_restricted_).*'))
 async def cb_handler(client: Client, query: CallbackQuery):
     try:
         data = query.data
