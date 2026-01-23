@@ -9,8 +9,12 @@ import asyncio
 from config import *
 from plugins.Post.admin_panel import admin_filter
 
-@Client.on_message(filters.command("genlink") & filters.private & admin_filter)
+@Client.on_message(filters.command(["genlink", "genlink1", "genlink2", "genlink3"]) & filters.private & admin_filter)
 async def generate_invite_links(client, message: Message):
+    if not await db.is_admin(message.from_user.id):
+        await message.reply("**❌ You are not authorized to use this command!**")
+        return
+    
     # Parse time argument
     expire_time = None
     time_suffix = ""
@@ -29,22 +33,37 @@ async def generate_invite_links(client, message: Message):
                 expire_time = timedelta(days=num)
                 time_suffix = f"⏳ Expires in {num} days"
 
-    # Initial processing message
-    processing_msg = await message.reply("🔄 <b>Generating fresh links...</b>")
+    # Determine group
+    cmd = message.command[0]
+    group = "0"  # Default for "genlink"
+    if len(cmd) > 7:  # If it's genlink1, genlink2, etc.
+        group = cmd[-1]  # Get the last character (1, 2, or 3)
 
-    # Generate links
+    # Initial processing message
+    processing_msg = await message.reply(f"🔄 <b>Generating fresh links for group {group}...</b>")
+
+    # Generate links for specific group
+    channels = await db.get_channels_by_group(group)
+    
+    if not channels:
+        await processing_msg.delete()
+        await message.reply(f"**No channels in group {group} yet.🙁**")
+        return
+
     links = {}
     success_count = 0
-    for channel in await db.get_all_channels():
+    for channel in channels:
         try:
             invite = await client.create_chat_invite_link(
                 chat_id=channel['_id'],
                 name=f"Link_{datetime.now().strftime('%m%d%H%M')}",
-                expire_date=datetime.now() + expire_time if expire_time else None
+                expire_date=datetime.now() + expire_time if expire_time else None,
+                creates_join_request=False  # Change to True if you want join requests instead of direct joins
             )
             links[channel['_id']] = {
                 'link': invite.invite_link,
-                'name': channel['name']
+                'name': channel['name'],
+                'group': group
             }
             success_count += 1
         except Exception as e:
@@ -52,9 +71,14 @@ async def generate_invite_links(client, message: Message):
 
     # Prepare response
     header = (
-        f"✨ <b>Generated Fresh links for {success_count} channels.</b>\n"
+        f"✨ <b>Generated Fresh links for {success_count} channels in group {group}.</b>\n"
         f"**{time_suffix}**\n\n"
     )
+    
+    if not links:
+        await processing_msg.delete()
+        await message.reply(f"❌ Failed to generate links for group {group}.")
+        return
     
     # Convert links to list for chunking
     links_list = list(links.values())
@@ -70,14 +94,15 @@ async def generate_invite_links(client, message: Message):
     )
     
     footer = (
-        "\n\n**⚠️ <i>These links will be revoked if you click 'Revoke Now</i>**"
-
-    ) if links else ""
+        f"\n\n**⚠️ <i>These links will be revoked if you click 'Revoke Now' below or after {time_suffix.lower().replace('⏳ ', '')}</i>**"
+        if time_suffix else "\n\n**⚠️ <i>These links will be revoked if you click 'Revoke Now' below</i>**"
+    )
     
     # Create buttons only for the first message
     buttons = []
     if links:
-        buttons.append([InlineKeyboardButton("🔴 Revoke Now", callback_data="revoke_all")])
+        # Store callback data with group identifier
+        buttons.append([InlineKeyboardButton("🔴 Revoke Now", callback_data=f"revoke_group_{group}")])
     
     await processing_msg.delete()
     first_message = await message.reply(
@@ -93,37 +118,46 @@ async def generate_invite_links(client, message: Message):
             for info in chunk
         )
         await message.reply(
-            f"✨ <b>Generated Links (Part {i}/{len(chunks)})</b>\n\n" + chunk_text,
+            f"✨ <b>Generated Links for group {group} (Part {i}/{len(chunks)})</b>\n\n" + chunk_text,
             disable_web_page_preview=True
         )
 
-    # Store links
-    client.generated_links = links
+    # Store links in a dictionary with group as key
+    if not hasattr(client, 'generated_links'):
+        client.generated_links = {}
+    
+    client.generated_links[group] = links
 
     # Schedule auto-revocation
     if expire_time:
-        asyncio.create_task(auto_revoke_links(client, links, expire_time))
+        asyncio.create_task(auto_revoke_links(client, links, expire_time, group))
 
-async def auto_revoke_links(client, links, delay):
+async def auto_revoke_links(client, links, delay, group):
     await asyncio.sleep(delay.total_seconds())
-    if hasattr(client, 'generated_links'):
+    if hasattr(client, 'generated_links') and group in client.generated_links:
         for chat_id, info in links.items():
             try:
                 await client.revoke_chat_invite_link(chat_id, info['link'])
             except:
                 continue
-        del client.generated_links
+        # Remove group from generated links
+        del client.generated_links[group]
 
-@Client.on_callback_query(filters.regex("^revoke_all$"))
-async def revoke_all_links(client, callback_query: CallbackQuery):
-    if not hasattr(client, 'generated_links'):
-        await callback_query.answer("❌ No active links found!", show_alert=True)
+@Client.on_callback_query(filters.regex("^revoke_group_"))
+async def revoke_group_links(client, callback_query: CallbackQuery):
+    # Extract group from callback data
+    group = callback_query.data.split("_")[-1]
+    
+    if not hasattr(client, 'generated_links') or group not in client.generated_links:
+        await callback_query.answer(f"❌ No active links found for group {group}!", show_alert=True)
         return
 
     await callback_query.answer("⏳ Revoking links...")
     
     revoked = 0
-    for chat_id, info in client.generated_links.items():
+    links = client.generated_links[group]
+    
+    for chat_id, info in links.items():
         try:
             await client.revoke_chat_invite_link(chat_id, info['link'])
             revoked += 1
@@ -132,9 +166,10 @@ async def revoke_all_links(client, callback_query: CallbackQuery):
 
     # Update original message
     await callback_query.message.edit_text(
-        f"✅ <b>Revoked {revoked} links</b>\n"
+        f"✅ <b>Revoked {revoked} links from group {group}</b>\n"
         f"**All previous links are now invalid**",
         reply_markup=None
     )
     
-    del client.generated_links
+    # Remove group from generated links
+    del client.generated_links[group]
