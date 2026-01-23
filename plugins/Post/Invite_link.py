@@ -54,20 +54,41 @@ async def generate_invite_links(client, message: Message):
     success_count = 0
     for channel in channels:
         try:
+            # Extract channel ID from the stored format (e.g., "-1002089378646_0")
+            # Remove everything after and including the underscore
+            channel_id_str = channel['_id']
+            
+            # Method 1: Try to extract numeric channel ID
+            if '_' in channel_id_str:
+                channel_id = int(channel_id_str.split('_')[0])
+            else:
+                # If not in the format with underscore, try to parse directly
+                channel_id = int(channel_id_str)
+            
+            # Get channel name - check if it's stored as 'name' field
+            channel_name = channel.get('name', f"Channel {channel_id}")
+            
+            # Create invite link
             invite = await client.create_chat_invite_link(
-                chat_id=channel['_id'],
+                chat_id=channel_id,  # Use extracted channel ID
                 name=f"Link_{datetime.now().strftime('%m%d%H%M')}",
                 expire_date=datetime.now() + expire_time if expire_time else None,
-                creates_join_request=False  # Change to True if you want join requests instead of direct joins
+                creates_join_request=False
             )
-            links[channel['_id']] = {
+            
+            # Store with original channel ID string as key
+            links[channel_id_str] = {
                 'link': invite.invite_link,
-                'name': channel['name'],
-                'group': group
+                'name': channel_name,
+                'group': group,
+                'clean_id': channel_id  # Store the clean ID for revocation
             }
             success_count += 1
+            
+        except ValueError as e:
+            print(f"Error parsing channel ID {channel['_id']}: {e}")
         except Exception as e:
-            print(f"Error in {channel['name']}: {str(e)}")
+            print(f"Error creating link for {channel.get('name', channel['_id'])}: {str(e)}")
 
     # Prepare response
     header = (
@@ -101,7 +122,6 @@ async def generate_invite_links(client, message: Message):
     # Create buttons only for the first message
     buttons = []
     if links:
-        # Store callback data with group identifier
         buttons.append([InlineKeyboardButton("🔴 Revoke Now", callback_data=f"revoke_group_{group}")])
     
     await processing_msg.delete()
@@ -135,10 +155,12 @@ async def generate_invite_links(client, message: Message):
 async def auto_revoke_links(client, links, delay, group):
     await asyncio.sleep(delay.total_seconds())
     if hasattr(client, 'generated_links') and group in client.generated_links:
-        for chat_id, info in links.items():
+        for channel_id_str, info in links.items():
             try:
-                await client.revoke_chat_invite_link(chat_id, info['link'])
-            except:
+                # Use the clean_id for revocation
+                await client.revoke_chat_invite_link(info['clean_id'], info['link'])
+            except Exception as e:
+                print(f"Error revoking link for {info['name']}: {e}")
                 continue
         # Remove group from generated links
         del client.generated_links[group]
@@ -157,11 +179,13 @@ async def revoke_group_links(client, callback_query: CallbackQuery):
     revoked = 0
     links = client.generated_links[group]
     
-    for chat_id, info in links.items():
+    for channel_id_str, info in links.items():
         try:
-            await client.revoke_chat_invite_link(chat_id, info['link'])
+            # Use the clean_id for revocation
+            await client.revoke_chat_invite_link(info['clean_id'], info['link'])
             revoked += 1
-        except:
+        except Exception as e:
+            print(f"Error revoking link for {info['name']}: {e}")
             continue
 
     # Update original message
