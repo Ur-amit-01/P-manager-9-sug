@@ -55,6 +55,7 @@ async def list_channels(client, message: Message):
     if len(message.command[0]) > 8:  # If it's channels1, channels2, etc.
         group = message.command[0][-1]  # Get the last character
     
+    # Get channels from database
     channels = await db.get_channels_by_group(group)
 
     if not channels:
@@ -62,21 +63,66 @@ async def list_channels(client, message: Message):
         return
 
     total_channels = len(channels)
-    channel_list = [f"• **{channel['name']}** :- `{channel['_id']}`" for channel in channels]
-
     header = f"> **Channels in group {group} :- ({total_channels})**\n\n"
     messages = []
     current_message = header
+    
+    # Counter for numbering channels
+    counter = 1
+    
+    for channel_data in channels:
+        try:
+            # Extract channel ID from stored format (e.g., "-1002163011245_0")
+            channel_id_str = str(channel_data['_id'])
+            
+            # Split to get the actual channel ID (remove the "_group" suffix)
+            if '_' in channel_id_str:
+                actual_channel_id = int(channel_id_str.split('_')[0])
+            else:
+                actual_channel_id = int(channel_id_str)
+            
+            # Try to fetch current channel info
+            try:
+                chat = await client.get_chat(actual_channel_id)
+                channel_name = chat.title
+                channel_username = f"@{chat.username}" if chat.username else "No username"
+                channel_info = f"{channel_name}"
+            except Exception as e:
+                print(f"Error fetching channel {actual_channel_id}: {e}")
+                channel_info = "Unknown Channel"
+                
+            # Add to message
+            line = f"**{counter}. {channel_info}**\n🆔 : `{actual_channel_id}`\n"
+            
+            if len(current_message) + len(line) + 1 > 4096:
+                messages.append(current_message)
+                current_message = ""
+            current_message += line + "\n"
+            
+            counter += 1
+            
+            # Small delay to avoid flood limits
+            await asyncio.sleep(0.1)
+            
+        except Exception as e:
+            print(f"Error processing channel: {e}")
+            # Fallback to stored data if available
+            if 'name' in channel_data:
+                line = f"**{counter}. {channel_data['name']}** (Fetch failed)\n   `{channel_data['_id']}`\n"
+                if len(current_message) + len(line) + 1 > 4096:
+                    messages.append(current_message)
+                    current_message = ""
+                current_message += line + "\n"
+                counter += 1
 
-    for line in channel_list:
-        if len(current_message) + len(line) + 1 > 4096:
-            messages.append(current_message)
-            current_message = ""
-        current_message += line + "\n"
-
-    if current_message:
+    if current_message and current_message.strip():
         messages.append(current_message)
 
+    # Send all messages
+    if not messages:
+        await message.reply(f"**No valid channels found in group {group}.**")
+        return
+        
     for part in messages:
         await message.reply(part)
-
+        await asyncio.sleep(0.5)  # Small delay between messages
