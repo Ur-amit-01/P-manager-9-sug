@@ -25,11 +25,13 @@ ADMIN_PREFIXES = {
     "remove_failed_",
     "remove_restricted_",
     "delete_",
-    "confirm_post_"  # ADD THIS LINE - for Yes/No confirmation buttons
+    "confirm_post_",
+    "revoke_group_",  # Add this
+    "revoke_all"      # Add this if you still use it
 }
 
 # Update the regex to exclude confirmation callbacks
-@Client.on_callback_query(filters.regex(r'^(?!admin_|promote_|demote_|list_|backup_|restore_|broadcast_|stats_|back_|remove_failed_|remove_restricted_|delete_|confirm_post_).*'))
+@Client.on_callback_query(filters.regex(r'^(?!admin_|promote_|demote_|list_|backup_|restore_|broadcast_|stats_|back_|remove_failed_|remove_restricted_|delete_|confirm_post_|revoke_group_|revoke_all).*'))
 async def cb_handler(client: Client, query: CallbackQuery):
     try:
         data = query.data
