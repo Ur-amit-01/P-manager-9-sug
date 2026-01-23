@@ -3,6 +3,7 @@ import time
 import re
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.errors import ChannelInvalid, ChatAdminRequired, PeerIdInvalid
 from plugins.helper.db import db
 import random
 import asyncio
@@ -52,10 +53,11 @@ async def generate_invite_links(client, message: Message):
 
     links = {}
     success_count = 0
+    failed_channels = []
+    
     for channel in channels:
         try:
             # Extract channel ID from the stored format (e.g., "-1002089378646_0")
-            # Remove everything after and including the underscore
             channel_id_str = channel['_id']
             
             # Method 1: Try to extract numeric channel ID
@@ -65,12 +67,20 @@ async def generate_invite_links(client, message: Message):
                 # If not in the format with underscore, try to parse directly
                 channel_id = int(channel_id_str)
             
-            # Get channel name - check if it's stored as 'name' field
-            channel_name = channel.get('name', f"Channel {channel_id}")
+            # Try to get current channel name from Telegram
+            channel_name = None
+            try:
+                # Try to get channel info
+                chat_info = await client.get_chat(channel_id)
+                channel_name = chat_info.title or chat_info.first_name or chat_info.username or f"Channel {channel_id}"
+            except Exception as e:
+                print(f"Error fetching channel info for {channel_id}: {e}")
+                # Fallback to stored name if available
+                channel_name = channel.get('name', f"Channel {channel_id}")
             
             # Create invite link
             invite = await client.create_chat_invite_link(
-                chat_id=channel_id,  # Use extracted channel ID
+                chat_id=channel_id,
                 name=f"Link_{datetime.now().strftime('%m%d%H%M')}",
                 expire_date=datetime.now() + expire_time if expire_time else None,
                 creates_join_request=False
@@ -81,14 +91,26 @@ async def generate_invite_links(client, message: Message):
                 'link': invite.invite_link,
                 'name': channel_name,
                 'group': group,
-                'clean_id': channel_id  # Store the clean ID for revocation
+                'clean_id': channel_id,  # Store the clean ID for revocation
+                'invite_name': invite.name  # Store the invite link name for potential revocation
             }
             success_count += 1
             
         except ValueError as e:
             print(f"Error parsing channel ID {channel['_id']}: {e}")
+            failed_channels.append(f"{channel.get('name', channel['_id'])} - Invalid ID format")
+        except ChannelInvalid as e:
+            print(f"Channel invalid or bot not admin: {channel.get('name', channel['_id'])}")
+            failed_channels.append(f"{channel.get('name', channel['_id'])} - Invalid channel or no admin access")
+        except ChatAdminRequired as e:
+            print(f"Bot needs admin permissions: {channel.get('name', channel['_id'])}")
+            failed_channels.append(f"{channel.get('name', channel['_id'])} - Bot needs admin permissions")
+        except PeerIdInvalid as e:
+            print(f"Invalid peer ID: {channel.get('name', channel['_id'])}")
+            failed_channels.append(f"{channel.get('name', channel['_id'])} - Invalid channel ID")
         except Exception as e:
             print(f"Error creating link for {channel.get('name', channel['_id'])}: {str(e)}")
+            failed_channels.append(f"{channel.get('name', channel['_id'])} - {str(e)}")
 
     # Prepare response
     header = (
@@ -96,9 +118,16 @@ async def generate_invite_links(client, message: Message):
         f"**{time_suffix}**\n\n"
     )
     
+    if failed_channels:
+        header += f"❌ <b>Failed to generate links for {len(failed_channels)} channels:</b>\n"
+        header += "\n".join(f"• {channel}" for channel in failed_channels[:5])
+        if len(failed_channels) > 5:
+            header += f"\n• ...and {len(failed_channels) - 5} more"
+        header += "\n\n"
+    
     if not links:
         await processing_msg.delete()
-        await message.reply(f"❌ Failed to generate links for group {group}.")
+        await message.reply(f"❌ Failed to generate any links for group {group}.\n\n<b>Failures:</b>\n" + "\n".join(f"• {channel}" for channel in failed_channels[:10]))
         return
     
     # Convert links to list for chunking
@@ -155,15 +184,25 @@ async def generate_invite_links(client, message: Message):
 async def auto_revoke_links(client, links, delay, group):
     await asyncio.sleep(delay.total_seconds())
     if hasattr(client, 'generated_links') and group in client.generated_links:
+        revoked_count = 0
         for channel_id_str, info in links.items():
             try:
-                # Use the clean_id for revocation
-                await client.revoke_chat_invite_link(info['clean_id'], info['link'])
+                # Revoke the invite link
+                # We need to pass both chat_id and invite_link
+                await client.revoke_chat_invite_link(
+                    chat_id=info['clean_id'],
+                    invite_link=info['link']
+                )
+                revoked_count += 1
             except Exception as e:
-                print(f"Error revoking link for {info['name']}: {e}")
+                print(f"Error auto-revoking link for {info['name']}: {e}")
                 continue
+        
+        print(f"Auto-revoked {revoked_count} links for group {group}")
+        
         # Remove group from generated links
-        del client.generated_links[group]
+        if group in client.generated_links:
+            del client.generated_links[group]
 
 @Client.on_callback_query(filters.regex("^revoke_group_"))
 async def revoke_group_links(client, callback_query: CallbackQuery):
@@ -177,23 +216,34 @@ async def revoke_group_links(client, callback_query: CallbackQuery):
     await callback_query.answer("⏳ Revoking links...")
     
     revoked = 0
+    failed = 0
     links = client.generated_links[group]
     
     for channel_id_str, info in links.items():
         try:
-            # Use the clean_id for revocation
-            await client.revoke_chat_invite_link(info['clean_id'], info['link'])
+            # Revoke the invite link
+            await client.revoke_chat_invite_link(
+                chat_id=info['clean_id'],
+                invite_link=info['link']
+            )
             revoked += 1
         except Exception as e:
             print(f"Error revoking link for {info['name']}: {e}")
+            failed += 1
             continue
 
     # Update original message
-    await callback_query.message.edit_text(
-        f"✅ <b>Revoked {revoked} links from group {group}</b>\n"
-        f"**All previous links are now invalid**",
-        reply_markup=None
+    result_text = f"✅ <b>Revoked {revoked} links from group {group}</b>\n"
+    if failed > 0:
+        result_text += f"❌ <i>Failed to revoke {failed} links</i>\n"
+    result_text += f"**All revoked links are now invalid**"
+    
+    await callback_query.message.send_message(
+        result_text,
+        reply_markup=None,
+        disable_web_page_preview=True
     )
     
     # Remove group from generated links
-    del client.generated_links[group]
+    if group in client.generated_links:
+        del client.generated_links[group]
