@@ -1,14 +1,14 @@
 import re
 from pyrogram import Client, filters
 
-def get_video_id(url):
+def get_video_id(text):
     pattern = (
-        r"(?:https?://)?(?:www\.|m\.)?"                # optional protocol and subdomain
+        r"(?:https?://)?(?:www\.|m\.)?"                # optional protocol & subdomain
         r"(?:youtu\.be/|youtube\.com/"                 # youtu.be OR youtube.com/
-        r"(?:embed/|shorts/|live/|v/|watch.*[?&]v=))"  # path-based OR watch with v param
-        r"([^/?&]+)"                                   # capture video ID (stop at / ? &)
+        r"(?:embed/|shorts/|live/|v/|watch.*[?&]v=))"  # path-based OR watch with v=
+        r"([^/?&]+)"                                    # capture video ID
     )
-    match = re.search(pattern, url, re.IGNORECASE)
+    match = re.search(pattern, text, re.IGNORECASE)
     if match:
         video_id = match.group(1)
         # YouTube video IDs are exactly 11 characters and consist of [A-Za-z0-9_-]
@@ -16,20 +16,19 @@ def get_video_id(url):
             return video_id
     return None
 
-@Client.on_message(filters.command(["t", "thumb"]))
-async def get_thumbnail(client, message):
-    if len(message.command) < 2:
-        await message.reply_text("❌ Send like this:\n/t YouTube_link")
-        return
-
-    video_id = get_video_id(message.command[1])
-
+# Filter: private text messages that contain a YouTube link
+@Client.on_message(
+    filters.text
+    & filters.private
+    & filters.regex(r"(https?://)?(www\.|m\.)?(youtube\.com|youtu\.be)/")
+)
+async def auto_thumbnail(client, message):
+    video_id = get_video_id(message.text)
     if not video_id:
-        await message.reply_text("❌ Invalid or unsupported YouTube URL")
-        return
+        return  # ignore if no valid ID found (shouldn't happen with the filter, but safe)
 
     qualities = [
-        "maxresdefault.jpg",   # Highest quality (if available)
+        "maxresdefault.jpg",   # highest quality (if available)
         "sddefault.jpg",
         "hqdefault.jpg",
         "default.jpg"
@@ -39,8 +38,9 @@ async def get_thumbnail(client, message):
         thumb_url = f"https://img.youtube.com/vi/{video_id}/{quality}"
         try:
             await message.reply_photo(thumb_url)
-            return
+            return  # stop after first successful reply
         except Exception:
-            continue
+            continue  # try next quality
 
-    await message.reply_text("❌ Could not fetch thumbnail")
+     Optionally, you can notify the user if all attempts fail:
+     await message.reply_text("**❌ Could not fetch thumbnail**")
