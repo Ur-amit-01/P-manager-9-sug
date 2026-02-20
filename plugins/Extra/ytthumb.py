@@ -2,71 +2,59 @@ import os
 import ytthumb
 from pyrogram import Client, filters
 from pyrogram.types import (
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    InputMediaPhoto,
     LinkPreviewOptions,
+    Message
 )
+from config import *
 
-for quality in ytthumb.qualities():
-    START_TEXT += f"\n  - {quality}: {ytthumb.qualities()[quality]}"
-
-BUTTON = [InlineKeyboardButton("Feedback", url="https://telegram.me/FayasNoushad")]
-
-photo_buttons = InlineKeyboardMarkup(
-    [[InlineKeyboardButton("Other Qualities", callback_data="qualities")], BUTTON]
-)
+# Simple help text
+HELP_TEXT = "**Send YouTube video link with /t or /thumb command to get maximum quality thumbnail**\n\n**Example:** `/t https://youtu.be/xxxxx`"
 
 
-@Bot.on_callback_query()
-async def cb_data(_, message):
-    data = message.data.lower()
-    if data == "qualities":
-        await message.answer("Select a quality")
-        buttons = []
-        for quality in ytthumb.qualities():
-            buttons.append(
-                InlineKeyboardButton(
-                    text=ytthumb.qualities()[quality], callback_data=quality
-                )
-            )
-        await message.edit_message_reply_markup(
-            InlineKeyboardMarkup(
-                [[buttons[0], buttons[1]], [buttons[2], buttons[3]], BUTTON]
-            )
+@Client.on_message(filters.private & filters.command(["t", "thumb"]))
+async def thumb_command(client: Client, message: Message):
+    """Handle /t or /thumb command - get max quality thumbnail"""
+    
+    # Check if URL is provided
+    if len(message.command) < 2:
+        await message.reply_text(
+            text=HELP_TEXT,
+            link_preview_options=LinkPreviewOptions(is_disabled=True)
         )
-    elif data == "back":
-        await message.edit_message_reply_markup(photo_buttons)
-    elif data in ytthumb.qualities():
-        thumbnail = ytthumb.thumbnail(
-            video=message.message.reply_to_message.text.split(" | ")[0],
-            quality=message.data,
-        )
-        await message.answer("Updating")
-        await message.edit_message_media(
-            media=InputMediaPhoto(media=thumbnail), reply_markup=photo_buttons
-        )
-        await message.answer("Updated Successfully")
-
-@Bot.on_message(filters.private & filters.text)
-async def send_thumbnail(bot, message):
-    reply = await message.reply_text(text="`Analysing...`", quote=True)
+        return
+    
+    # Get the URL from command
+    url = message.command[1]
+    
+    # Send processing message
+    processing_msg = await message.reply_text(
+        text="`🔍 Processing YouTube thumbnail...`",
+        quote=True
+    )
+    
     try:
-        if " | " in message.text:
-            video = message.text.split(" | ", -1)[0]
-            quality = message.text.split(" | ", -1)[1]
+        # Get thumbnail with max quality
+        thumbnail = ytthumb.thumbnail(video=url, quality="maxres")
+        
+        # If maxres fails, try hq as fallback
+        if not thumbnail:
+            thumbnail = ytthumb.thumbnail(video=url, quality="hq")
+        
+        if thumbnail:
+            # Send thumbnail without caption
+            await message.reply_photo(
+                photo=thumbnail,
+                quote=True
+            )
+            await processing_msg.delete()
         else:
-            video = message.text
-            quality = "sd"
-        thumbnail = ytthumb.thumbnail(video=video, quality=quality)
-        print(thumbnail)
-        await message.reply_photo(
-            photo=thumbnail, reply_markup=photo_buttons, quote=True
-        )
-        await reply.delete()
-    except Exception as error:
-        await reply.edit_text(
-            text=error,
-            link_preview_options=LinkPreviewOptions(is_disabled=True),
-            reply_markup=InlineKeyboardMarkup([BUTTON]),
+            await processing_msg.edit_text(
+                text="❌ Could not fetch thumbnail. Please check the URL and try again.",
+                link_preview_options=LinkPreviewOptions(is_disabled=True)
+            )
+            
+    except Exception as e:
+        await processing_msg.edit_text(
+            text=f"❌ Error: {str(e)}",
+            link_preview_options=LinkPreviewOptions(is_disabled=True)
         )
