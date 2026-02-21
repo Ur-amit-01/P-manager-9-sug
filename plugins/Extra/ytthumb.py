@@ -16,16 +16,21 @@ def get_video_id(text):
             return video_id
     return None
 
-# Filter: private text messages that contain a YouTube link
+# Custom filter to ignore all command messages (messages starting with /)
+def not_command(_, __, message):
+    return not (message.text and message.text.startswith('/'))
+
+# Filter: private text messages that contain a YouTube link but aren't commands
 @Client.on_message(
     filters.text
     & filters.private
+    & filters.create(not_command)  # Custom filter to ignore all commands
     & filters.regex(r"(https?://)?(www\.|m\.)?(youtube\.com|youtu\.be)/")
 )
 async def auto_thumbnail(client, message):
     video_id = get_video_id(message.text)
     if not video_id:
-        return  # ignore if no valid ID found (shouldn't happen with the filter, but safe)
+        return
 
     qualities = [
         "maxresdefault.jpg",   # highest quality (if available)
@@ -42,5 +47,5 @@ async def auto_thumbnail(client, message):
         except Exception:
             continue  # try next quality
 
-     #Optionally, you can notify the user if all attempts fail:
+    # Optionally, you can notify the user if all attempts fail:
     await message.reply_text("**❌ Could not fetch thumbnail**")
