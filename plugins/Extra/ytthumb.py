@@ -43,4 +43,4 @@ async def auto_thumbnail(client, message):
             continue  # try next quality
 
      #Optionally, you can notify the user if all attempts fail:
-     await message.reply_text("**❌ Could not fetch thumbnail**")
+    await message.reply_text("**❌ Could not fetch thumbnail**")
