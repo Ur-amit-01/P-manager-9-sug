@@ -16,21 +16,21 @@ def get_video_id(text):
             return video_id
     return None
 
-# Custom filter to ignore all command messages (messages starting with /)
-def not_command(_, __, message):
-    return not (message.text and message.text.startswith('/'))
-
-# Filter: private text messages that contain a YouTube link but aren't commands
+# Filter: private text messages that contain a YouTube link but don't start with /
 @Client.on_message(
     filters.text
     & filters.private
-    & filters.create(not_command)  # Custom filter to ignore all commands
+    & ~filters.command(["start", "admin", "settings", "thumbnail"])  # Ignore common commands
     & filters.regex(r"(https?://)?(www\.|m\.)?(youtube\.com|youtu\.be)/")
 )
 async def auto_thumbnail(client, message):
+    # Additional check to ensure message doesn't start with / (command)
+    if message.text and message.text.startswith('/'):
+        return  # Ignore all command messages
+        
     video_id = get_video_id(message.text)
     if not video_id:
-        return
+        return  # ignore if no valid ID found
 
     qualities = [
         "maxresdefault.jpg",   # highest quality (if available)
