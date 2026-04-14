@@ -1,10 +1,11 @@
 
 
 <h1 align="center">
- <b><a href="https://telegram.me/LazyDeveloper" target="/blank"> TG Post Manager ( Advance BOT ) </a></>
+ <b><a href="https://telegram.me/LazyDeveloper" target="/blank"> TG Post Manager Bot 🤖 </a></>
 </h1>
 
 <p align="center">🤍 Thanks for Being Here 🤍</p>
+<p align="center">🤍 Made with love by - Amit Singh 🤍</p>
 
 <div align="center">
   <picture>
