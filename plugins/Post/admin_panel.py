@@ -28,7 +28,7 @@ async def admins_only(_, __, message):
         if user_id == MAINTENANCE_ALLOWED_USER:
             return True
         else:
-            await message.reply("🚧 Bot is under maintenance. Please try again later.")
+            await message.reply("**🚧 Bot is under maintenance. Please try again later.**")
             return False
 
     # ----- NORMAL ADMIN CHECK -----
