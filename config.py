@@ -12,6 +12,10 @@ ADMIN = [int(admin) if id_pattern.search(admin) else admin for admin in os.envir
 ADMINS = [int(admin) if id_pattern.search(admin) else admin for admin in os.environ.get('ADMINS', '2031106491').split()]
 PORT = os.environ.get("PORT", "8080")
 
+# Maintenance Mode
+MAINTENANCE_MODE = True              # Set to True to enable maintenance
+MAINTENANCE_ALLOWED_USER = 2031106491  # Only this user can use the bot
+
 RESTART_NOTIFICATION = False
 ERROR_MESSAGE = bool(os.environ.get('ERROR_MESSAGE', False)) # Set True or False
 NEW_REQ_MODE = bool(environ.get('NEW_REQ_MODE', True)) # Set True or False
