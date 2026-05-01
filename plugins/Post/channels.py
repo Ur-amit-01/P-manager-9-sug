@@ -102,7 +102,7 @@ async def list_channels(client, message: Message):
             counter += 1
             
             # Small delay to avoid flood limits
-            await asyncio.sleep(0.1)
+            #await asyncio.sleep(0.1)
             
         except Exception as e:
             print(f"Error processing channel: {e}")
