@@ -12,7 +12,7 @@ ADMIN = [int(admin) if id_pattern.search(admin) else admin for admin in os.envir
 ADMINS = [int(admin) if id_pattern.search(admin) else admin for admin in os.environ.get('ADMINS', '2031106491').split()]
 PORT = os.environ.get("PORT", "8080")
 
-RESTART_NOTIFICATION = False
+RESTART_NOTIFICATION = True
 ERROR_MESSAGE = bool(os.environ.get('ERROR_MESSAGE', False)) # Set True or False
 NEW_REQ_MODE = bool(environ.get('NEW_REQ_MODE', True)) # Set True or False
 SESSION_STRING = os.environ.get("SESSION_STRING", "")
