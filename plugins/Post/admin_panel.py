@@ -20,7 +20,24 @@ logger.setLevel(logging.INFO)
 async def admins_only(_, __, message):
     if not message.from_user:
         return False
-    return await db.is_admin(message.from_user.id)
+
+    user_id = message.from_user.id
+
+    # ----- MAINTENANCE MODE CHECK -----
+    if MAINTENANCE_MODE:
+        # Only the allowed owner can proceed
+        if user_id == MAINTENANCE_ALLOWED_USER:
+            return True
+        else:
+            # Block and send a maintenance message
+            await message.reply(
+                "🚧 **Bot is under maintenance.**\n"
+                "**Please try again later.**"
+            )
+            return False
+
+    # ----- NORMAL ADMIN CHECK (when maintenance is off) -----
+    return await db.is_admin(user_id)
 
 admin_filter = filters.create(admins_only)
 
