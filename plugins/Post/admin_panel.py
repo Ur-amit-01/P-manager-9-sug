@@ -28,12 +28,12 @@ async def admins_only(_, __, message):
         if user_id == MAINTENANCE_ALLOWED_USER:
             return True
         else:
-            await message.reply("**🚧 Bot is under maintenance. Please try again later.**")
+            await message.reply("**🚧 Bot is under maintenance. \nPlease try again later.**")
             return False
 
     # ----- NORMAL ADMIN CHECK -----
     if not await db.is_admin(user_id):
-        await message.reply("**❌ Sorry Darling, You are not authorized to use this command. 🤖**")
+        await message.reply("**❌ Sorry Darling, \nYou are not authorized to use this command. 🤖**")
         return False
 
     return True
