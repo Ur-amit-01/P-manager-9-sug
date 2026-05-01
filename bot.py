@@ -39,8 +39,9 @@ class Bot(Client):
                 try:
                     await self.send_message(
                         admin_id,
-                        "**Missed me ??**\n"
-                        "**I'm baaack online ~ 🎀🌝**")
+                        "**Bot is Under Maintenance 🛠️ - Amit ⚡**")
+                        #"**Missed me ??**\n"
+                        #"**I'm baaack online ~ 🎀🌝**")
                 except Exception as e:
                     logging.warning(f"Failed to send restart notification to {admin_id}: {e}")
         else:
