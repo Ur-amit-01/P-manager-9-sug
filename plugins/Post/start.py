@@ -66,33 +66,3 @@ async def set_commands(client: Client, message: Message):
     ])
     await message.reply_text("✅ Bot commands have been set.")
 
-
-URL_PATTERN = r'https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)'
-
-TARGET_LINK = "https://unacademy.onelink.me/M2BR/mwbb95mt"
-
-@Client.on_message(filters.command("fuck") & filters.reply)
-async def replace_links(client: Client, message: Message):
-    """Replace all links in the replied message with a specific URL."""
-    replied = message.reply_to_message
-
-    # Get text from the replied message (supports captions)
-    original_text = replied.text or replied.caption
-    if not original_text:
-        await message.reply_text("❌ The replied message has no text or caption.")
-        return
-
-    # Find all URLs in the original text
-    found_links = re.findall(URL_PATTERN, original_text, flags=re.IGNORECASE)
-    if not found_links:
-        await message.reply_text("🔍 No links found in the replied message.")
-        return
-
-    # Replace each URL with the target link
-    new_text = re.sub(URL_PATTERN, TARGET_LINK, original_text, flags=re.IGNORECASE)
-
-    # Send the modified text as a reply
-    await message.reply_text(
-        f"✨ **Replaced {len(found_links)} link(s) with:**\n\n{new_text}",
-        disable_web_page_preview=True
-    )
