@@ -57,7 +57,6 @@ async def set_commands(client: Client, message: Message):
     await client.set_bot_commands([
         BotCommand("start", "🤖 ꜱᴛᴀʀᴛ ᴍᴇ"),
         BotCommand("channels", "📋 ʟɪꜱᴛ ᴏꜰ ᴄᴏɴɴᴇᴄᴛᴇᴅ ᴄʜᴀɴɴᴇʟꜱ"),
-        BotCommand("admin", "🛠️ ᴀᴅᴍɪɴ ᴘᴀɴᴇʟ"),
         BotCommand("post", "📢 ꜱᴇɴᴅ ᴘᴏꜱᴛ"),
         BotCommand("fpost", "📢 sᴇɴᴅ ᴘᴏsᴛ ᴡɪᴛʜ ғᴏʀᴡᴀʀᴅ ᴛᴀɢ"),
         BotCommand("del_post", "🗑️ ᴅᴇʟᴇᴛᴇ ᴘᴏꜱᴛ"),
