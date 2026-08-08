@@ -4,6 +4,7 @@ import logging.config
 from pyrogram import Client
 from config import *
 from plugins.Post.Posting import restore_pending_deletions
+from plugins.Post.Invite_link import generate_all_links
 import asyncio
 from plugins.helper.sync_channels import sync_channel_names
 
@@ -31,6 +32,9 @@ class Bot(Client):
         self.username = me.username
 
         await restore_pending_deletions(self)
+
+        asyncio.create_task(generate_all_links(self))
+        logging.info(f"{me.first_name} Invite link generation started in background. 🔗")
 
         asyncio.create_task(sync_channel_names(self))
         logging.info(f"{me.first_name} Channel name sync started in background. 📣")
