@@ -33,7 +33,7 @@ class Bot(Client):
         await restore_pending_deletions(self)
 
         asyncio.create_task(sync_channel_names(self))
-        logging.info(f"{me.first_name} Channel name sync started in background.")
+        logging.info(f"{me.first_name} Channel name sync started in background. 📣")
 
         logging.info(f"{me.first_name} ✅✅ BOT started successfully ✅✅")
         
