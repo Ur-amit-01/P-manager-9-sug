@@ -7,5 +7,6 @@ aiohttp
 pytz
 urllib3
 pyrogram
-Flask
-gunicorn
+Flask>=3.1,<4
+Jinja2>=3.1,<4
+gunicorn>=23,<24
