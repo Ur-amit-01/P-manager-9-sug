@@ -23,8 +23,9 @@ MAIN_HELP_TXT = """
 • Success/failure rate tracking
 • Post history
 
-<blockquote>Developed by : @xDzoddd</blockquote> </b>
+
 """
+#<blockquote>Developed by : @xDzoddd</blockquote> </b>
 
 POST_HELP_TXT = """
 <b>📢 Post Command Usage
@@ -77,7 +78,6 @@ DELETE_HELP_TXT = """
 ABOUT_TXT = """
 <b>╭───────────⍟
 ├➢ ᴍʏꜱᴇʟꜰ : {}
-├➢ ᴅᴇᴠᴇʟᴏᴘᴇʀ : <a href=https://t.me/xDzoddd>Amit Singh 🪫ᯤ̸</a>
 ├➢ ʟɪʙʀᴀʀʏ : <a href=https://github.com/pyrogram>ᴘʏʀᴏɢʀᴀᴍ</a>
 ├➢ ʟᴀɴɢᴜᴀɢᴇ : <a href=https://www.python.org>ᴘʏᴛʜᴏɴ 3</a>
 ├➢ ᴅᴀᴛᴀʙᴀꜱᴇ : <a href=https://cloud.mongodb.com>MᴏɴɢᴏDB</a>
@@ -85,8 +85,10 @@ ABOUT_TXT = """
 ├➢ ʙᴜɪʟᴅ ꜱᴛᴀᴛᴜꜱ  : ᴘʏᴛʜᴏɴ v3.6.8
 ╰───────────────⍟
 
-➢ >ᴅᴇᴠᴇʟᴏᴘᴇʀ 🧑🏻‍💻 :- @xDzoddd (DM for personal bot. 🤝🏻)
 </b>"""
+
+#├➢ ᴅᴇᴠᴇʟᴏᴘᴇʀ : <a href=https://t.me/xDzoddd>Amit Singh 🪫ᯤ̸</a>
+#➢ >ᴅᴇᴠᴇʟᴏᴘᴇʀ 🧑🏻‍💻 :- @xDzoddd (DM for personal bot. 🤝🏻)
 
 RESTRICTED_TXT = """
 > **💡 Restricted Content Saver**
